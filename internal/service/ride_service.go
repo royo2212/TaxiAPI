@@ -1,18 +1,20 @@
 package service
 
 import (
+	"context"
 	"taxiAPI/internal/entity"
 	customErrors "taxiAPI/internal/errors"
 )
 
 type RideStore interface {
-	SaveRide(ride *entity.Ride) error
-	FindRideByID(id int) (*entity.Ride, error)
-	UpdateRideStatus(rideID int, status entity.Status) error
-	AssignDriverToRide(rideID int, driverID int) error
-	GetAllRides() ([]*entity.Ride, error)
-	FindActiveRideByDriver(driverID int) (*entity.Ride, error)
+	SaveRide(ctx context.Context, ride *entity.Ride) error
+	FindRideByID(ctx context.Context, id int) (*entity.Ride, error)
+	UpdateRideStatus(ctx context.Context, rideID int, status entity.Status) error
+	AssignDriverToRide(ctx context.Context, rideID int, driverID int) error
+	GetAllRides(ctx context.Context) ([]*entity.Ride, error)
+	FindActiveRideByDriver(ctx context.Context, driverID int) (*entity.Ride, error)
 }
+
 type RideService struct {
 	store          RideStore
 	passengerStore PassengerStore
@@ -28,7 +30,7 @@ func NewRideService(store RideStore, passengerStore PassengerStore, driverStore 
 		nextID:         1,
 	}
 }
-func (s *RideService) CreateRide(passengerID int, origin, destination string) (*entity.Ride, error) {
+func (s *RideService) CreateRide(ctx context.Context, passengerID int, origin, destination string) (*entity.Ride, error) {
 	if passengerID == 0 {
 		return nil, customErrors.ErrPassengerIDRequired
 	}
@@ -38,10 +40,12 @@ func (s *RideService) CreateRide(passengerID int, origin, destination string) (*
 	if destination == "" {
 		return nil, customErrors.ErrDestinationRequired
 	}
-	passenger, err := s.passengerStore.GetPassengerByID(passengerID)
+
+	passenger, err := s.passengerStore.GetPassengerByID(ctx,passengerID)
 	if err != nil {
 		return nil, err
 	}
+
 	ride := &entity.Ride{
 		RideID:      s.nextID,
 		PassengerID: passengerID,
@@ -51,43 +55,47 @@ func (s *RideService) CreateRide(passengerID int, origin, destination string) (*
 		Status:      entity.StatusPending,
 	}
 	s.nextID++
-	err = s.store.SaveRide(ride)
-	if err != nil {
+
+	if err := s.store.SaveRide(ctx, ride); err != nil {
 		return nil, err
 	}
+
 	return ride, nil
 }
 
-func (s *RideService) GetRide(rideID int) (*entity.Ride, error) {
+func (s *RideService) GetRide(ctx context.Context, rideID int) (*entity.Ride, error) {
 	if rideID == 0 {
 		return nil, customErrors.ErrRideIDRequired
 	}
-	ride, err := s.store.FindRideByID(rideID)
+	ride, err := s.store.FindRideByID(ctx, rideID)
 	if err != nil {
 		return nil, err
 	}
-	passenger, err := s.passengerStore.GetPassengerByID(ride.PassengerID)
+	passenger, err := s.passengerStore.GetPassengerByID(ctx,ride.PassengerID)
 	if err == nil {
 		ride.Passenger = passenger
 	}
-	driver, err := s.driverStore.GetDriverByID(ride.DriverID)
+	driver, err := s.driverStore.GetDriverByID(ctx,ride.DriverID)
 	if err == nil {
 		ride.Driver = driver
 	}
 	return ride, nil
 }
 
-func (s *RideService) GetAllRides() ([]*entity.Ride, error) {
-	rides, err := s.store.GetAllRides()
+func (s *RideService) GetAllRides(ctx context.Context) ([]*entity.Ride, error) {
+	rides, err := s.store.GetAllRides(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, ride := range rides {
-		if passenger, err := s.passengerStore.GetPassengerByID(ride.PassengerID); err == nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if passenger, err := s.passengerStore.GetPassengerByID(ctx,ride.PassengerID); err == nil {
 			ride.Passenger = passenger
 		}
-		if driver, err := s.driverStore.GetDriverByID(ride.DriverID); err == nil {
+		if driver, err := s.driverStore.GetDriverByID(ctx,ride.DriverID); err == nil {
 			ride.Driver = driver
 		}
 	}
@@ -95,11 +103,11 @@ func (s *RideService) GetAllRides() ([]*entity.Ride, error) {
 	return rides, nil
 }
 
-func (s *RideService) UpdateRideStatus(rideID int, status entity.Status) error {
+func (s *RideService) UpdateRideStatus(ctx context.Context, rideID int, status entity.Status) error {
 	if rideID == 0 {
 		return customErrors.ErrRideIDRequired
 	}
-	ride, err := s.store.FindRideByID(rideID)
+	ride, err := s.store.FindRideByID(ctx, rideID)
 	if err != nil {
 		return err
 	}
@@ -110,17 +118,17 @@ func (s *RideService) UpdateRideStatus(rideID int, status entity.Status) error {
 		return customErrors.ErrInvalidRideStatus
 	}
 	ride.Status = status
-	return s.store.UpdateRideStatus(rideID, ride.Status)
+	return s.store.UpdateRideStatus(ctx, rideID, ride.Status)
 }
 
-func (s *RideService) AssignDriverToRide(rideID, driverID int) error {
+func (s *RideService) AssignDriverToRide(ctx context.Context, rideID, driverID int) error {
 	if rideID == 0 {
 		return customErrors.ErrRideIDRequired
 	}
 	if driverID == 0 {
 		return customErrors.ErrDriverIDRequired
 	}
-	ride, err := s.store.FindRideByID(rideID)
+	ride, err := s.store.FindRideByID(ctx, rideID)
 	if err != nil {
 		return err
 	}
@@ -133,11 +141,11 @@ func (s *RideService) AssignDriverToRide(rideID, driverID int) error {
 	if ride.Status != entity.StatusPending {
 		return customErrors.ErrCannotAssignDriverToNonPendingRide
 	}
-	existingRide, err := s.store.FindActiveRideByDriver(driverID)
+	existingRide, err := s.store.FindActiveRideByDriver(ctx, driverID)
 	if err == nil && existingRide != nil {
 		return customErrors.ErrDriverAlreadyOnActiveRide
 	}
 	ride.DriverID = driverID
 	ride.Status = entity.StatusAccepted
-	return s.store.AssignDriverToRide(rideID, driverID)
+	return s.store.AssignDriverToRide(ctx, rideID, driverID)
 }

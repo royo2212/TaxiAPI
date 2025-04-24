@@ -2,11 +2,12 @@ package endpoints
 
 import (
 	"encoding/json"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strconv"
 	"taxiAPI/internal/entity"
 	"taxiAPI/internal/service"
+
+	"github.com/gorilla/mux"
 )
 
 type RideHandler struct {
@@ -32,10 +33,10 @@ type createRideRequest struct {
 func (h *RideHandler) CreateRide(w http.ResponseWriter, r *http.Request) {
 	var req createRideRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	ride, err := h.service.CreateRide(req.PassengerID, req.Origin, req.Destination)
+	ride, err := h.service.CreateRide(r.Context(), req.PassengerID, req.Origin, req.Destination)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -44,7 +45,7 @@ func (h *RideHandler) CreateRide(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(ride); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
 
@@ -54,11 +55,11 @@ func (h *RideHandler) GetRide(w http.ResponseWriter, r *http.Request) {
 
 	rideID, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid ride ID", http.StatusBadRequest)
+		http.Error(w, "Invalid ride ID", http.StatusBadRequest)
 		return
 	}
 
-	ride, err := h.service.GetRide(rideID)
+	ride, err := h.service.GetRide(r.Context(), rideID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -66,12 +67,12 @@ func (h *RideHandler) GetRide(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(ride); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
 
 func (h *RideHandler) GetAllRides(w http.ResponseWriter, r *http.Request) {
-	rides, err := h.service.GetAllRides()
+	rides, err := h.service.GetAllRides(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -80,7 +81,7 @@ func (h *RideHandler) GetAllRides(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(rides); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
 
@@ -90,7 +91,7 @@ func (h *RideHandler) AssignDriverToRide(w http.ResponseWriter, r *http.Request)
 
 	rideID, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid ride ID", http.StatusBadRequest)
+		http.Error(w, "Invalid ride ID", http.StatusBadRequest)
 		return
 	}
 
@@ -103,7 +104,7 @@ func (h *RideHandler) AssignDriverToRide(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.service.AssignDriverToRide(rideID, req.DriverID); err != nil {
+	if err := h.service.AssignDriverToRide(r.Context(), rideID, req.DriverID); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -125,23 +126,20 @@ func (h *RideHandler) UpdateRideStatus(w http.ResponseWriter, r *http.Request) {
 
 	rideID, err := strconv.Atoi(idStr)
 	if err != nil {
-		http.Error(w, "invalid ride ID", http.StatusBadRequest)
+		http.Error(w, "Invalid ride ID", http.StatusBadRequest)
 		return
 	}
-
-	var req struct {
-		Status string `json:"status"`
-	}
+	var req updateStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.service.UpdateRideStatus(rideID, entity.Status(req.Status)); err != nil {
+	if err := h.service.UpdateRideStatus(r.Context(), rideID, entity.Status(req.Status)); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(map[string]interface{}{
 		"message": "Ride status updated",
