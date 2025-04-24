@@ -13,9 +13,9 @@ import (
 
 func main() {
 	// ✅ Initialize in-memory storage
-	rideStore := storage.NewRideMemory()
-	passengerStore := storage.NewPassengerMemory()
-	driverStore := storage.NewDriverMemory()
+	rideStore := storage.NewRide()
+	passengerStore := storage.NewPassenger()
+	driverStore := storage.NewDriver()
 
 	// ✅ Initialize services
 	passengerService := service.NewPassengerService(passengerStore)

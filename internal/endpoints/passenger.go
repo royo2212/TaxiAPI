@@ -36,7 +36,7 @@ func (h *PassengerHandler) RegisterPassenger(w http.ResponseWriter, r *http.Requ
 		LastName:    req.LastName,
 		PhoneNumber: req.PhoneNumber,
 	}
-	created, err := h.service.RegisterPassenger(passenger)
+	created, err := h.service.RegisterPassenger(r.Context(),passenger)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -55,7 +55,7 @@ func (h *PassengerHandler) GetPassengerByID(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Invalid passenger ID", http.StatusBadRequest)
 		return
 	}
-	passenger, err := h.service.GetPassengerByID(id)
+	passenger, err := h.service.GetPassengerByID(r.Context(),id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -67,7 +67,7 @@ func (h *PassengerHandler) GetPassengerByID(w http.ResponseWriter, r *http.Reque
 	}
 }
 func (h *PassengerHandler) GetAllPassengers(w http.ResponseWriter, r *http.Request) {
-	passengers, err := h.service.GetAllPassengers()
+	passengers, err := h.service.GetAllPassengers(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -76,7 +76,7 @@ func (h *PassengerHandler) GetAllPassengers(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(passengers); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
 func (h *PassengerHandler) DeletePassenger(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (h *PassengerHandler) DeletePassenger(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Invalid passenger ID", http.StatusBadRequest)
 		return
 	}
-	err = h.service.DeletePassenger(id)
+	err = h.service.DeletePassenger(r.Context(),id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
