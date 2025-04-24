@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"sync"
 	"taxiAPI/internal/entity"
 	customErrors "taxiAPI/internal/errors"
@@ -19,16 +20,26 @@ func NewDriverMemory() *DriverMemory {
 	}
 }
 
-func (m *DriverMemory) RegisterDriver(d *entity.Driver) (*entity.Driver, error) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	d.DriverID = m.nextID
-	m.drivers[d.DriverID] = d
-	m.nextID++
-	return d, nil
+func (m *DriverMemory) RegisterDriver(ctx context.Context, d *entity.Driver) (*entity.Driver, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		m.mutex.Lock()
+		defer m.mutex.Unlock()
+		d.DriverID = m.nextID
+		m.drivers[d.DriverID] = d
+		m.nextID++
+		return d, nil
+	}
 }
 
-func (m *DriverMemory) GetDriverByID(id int) (*entity.Driver, error) {
+func (m *DriverMemory) GetDriverByID(ctx context.Context, id int) (*entity.Driver, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	p, ok := m.drivers[id]
@@ -38,7 +49,12 @@ func (m *DriverMemory) GetDriverByID(id int) (*entity.Driver, error) {
 	return p, nil
 }
 
-func (m *DriverMemory) GetAllDrivers() ([]*entity.Driver, error) {
+func (m *DriverMemory) GetAllDrivers(ctx context.Context) ([]*entity.Driver, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 	drivers := make([]*entity.Driver, 0, len(m.drivers))
@@ -48,7 +64,12 @@ func (m *DriverMemory) GetAllDrivers() ([]*entity.Driver, error) {
 	return drivers, nil
 }
 
-func (m *DriverMemory) DeleteDriver(id int) error {
+func (m *DriverMemory) DeleteDriver(ctx context.Context, id int) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	_, ok := m.drivers[id]
@@ -58,7 +79,12 @@ func (m *DriverMemory) DeleteDriver(id int) error {
 	delete(m.drivers, id)
 	return nil
 }
-func (m *DriverMemory) FindByPhoneNumber(phone int) (*entity.Driver, error) {
+func (m *DriverMemory) FindByPhoneNumber(ctx context.Context, phone int) (*entity.Driver, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 

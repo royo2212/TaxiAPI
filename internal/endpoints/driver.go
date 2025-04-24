@@ -41,7 +41,7 @@ func (h *DriverHandler) RegisterDriver(w http.ResponseWriter, r *http.Request) {
 		IsAvailable:  true,
 	}
 
-	created, err := h.service.RegisterDriver(driver)
+	created, err := h.service.RegisterDriver(r.Context(),driver)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -60,7 +60,7 @@ func (h *DriverHandler) GetDriverByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	driver, err := h.service.GetDriverByID(id)
+	driver, err := h.service.GetDriverByID(r.Context(),id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -74,7 +74,7 @@ func (h *DriverHandler) GetDriverByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *DriverHandler) GetAllDrivers(w http.ResponseWriter, r *http.Request) {
-	drivers, err := h.service.GetAllDrivers()
+	drivers, err := h.service.GetAllDrivers(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -91,7 +91,7 @@ func (h *DriverHandler) DeleteDriver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.service.DeleteDriver(id)
+	err = h.service.DeleteDriver(r.Context(),id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
