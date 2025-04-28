@@ -9,8 +9,3 @@ type Driver struct {
 	CarType      string `json:"car_type"`
 	LicensePlate int    `json:"license_plate"`
 }
-
-
-type ExtraDriver struct { 
-	ID string `json:"id"`
-}
