@@ -1,7 +1,7 @@
 package entity
 
 type Driver struct {
-	DriverID     int    `json:"driver_id"`
+	ID     *int   `json:"id"`
 	FirstName    string `json:"first_name"`
 	LastName     string `json:"last_name"`
 	PhoneNumber  int    `json:"phone_number"`
