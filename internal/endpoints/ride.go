@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"taxiAPI/internal/entity"
 	"taxiAPI/internal/service"
-
+	customErrors "taxiAPI/internal/errors"
 	"github.com/gorilla/mux"
 )
 
@@ -38,9 +38,17 @@ func (h *RideHandler) CreateRide(w http.ResponseWriter, r *http.Request) {
 	}
 	ride, err := h.service.CreateRide(r.Context(), req.PassengerID, req.Origin, req.Destination)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		switch err {
+			case customErrors.ErrPassengerIDRequired, customErrors.ErrOriginRequired, 
+				 customErrors.ErrDestinationRequired:
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			case customErrors.ErrPassengerNotFound:
+				http.Error(w, err.Error(), http.StatusNotFound)
+			default:
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
+			return
+		}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
@@ -61,9 +69,15 @@ func (h *RideHandler) GetRide(w http.ResponseWriter, r *http.Request) {
 
 	ride, err := h.service.GetRide(r.Context(), rideID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		if err == customErrors.ErrRideNotFound {
+            http.Error(w, err.Error(), http.StatusNotFound)
+        } else if err == customErrors.ErrRideIDRequired {
+            http.Error(w, err.Error(), http.StatusBadRequest)
+        } else {
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(ride); err != nil {
@@ -105,9 +119,20 @@ func (h *RideHandler) AssignDriverToRide(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err := h.service.AssignDriverToRide(r.Context(), rideID, req.DriverID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		switch err {
+        case customErrors.ErrRideNotFound, customErrors.ErrDriverNotFound:
+            http.Error(w, err.Error(), http.StatusNotFound)
+        case customErrors.ErrRideIDRequired, customErrors.ErrDriverIDRequired:
+            http.Error(w, err.Error(), http.StatusBadRequest)
+        case customErrors.ErrDriverAlreadyAssignedToRide, customErrors.ErrRideAlreadyAssigned:
+            http.Error(w, err.Error(), http.StatusConflict)
+        case customErrors.ErrCannotAssignDriverToNonPendingRide, customErrors.ErrDriverAlreadyOnActiveRide:
+            http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+        default:
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -136,9 +161,20 @@ func (h *RideHandler) UpdateRideStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.service.UpdateRideStatus(r.Context(), rideID, entity.Status(req.Status)); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		switch err {
+        case customErrors.ErrRideNotFound:
+            http.Error(w, err.Error(), http.StatusNotFound)
+        case customErrors.ErrRideIDRequired:
+            http.Error(w, err.Error(), http.StatusBadRequest)
+        case customErrors.ErrInvalidRideStatus:
+            http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+        case customErrors.ErrCannotChangeCompletedRide:
+            http.Error(w, err.Error(), http.StatusConflict)
+        default:
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	err = json.NewEncoder(w).Encode(map[string]interface{}{

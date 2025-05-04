@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"taxiAPI/internal/entity"
 	"taxiAPI/internal/service"
+	customErrors "taxiAPI/internal/errors"
 )
 
 type DriverHandler struct {
@@ -43,9 +44,20 @@ func (h *DriverHandler) RegisterDriver(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.RegisterDriver(r.Context(),driver)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		switch err {
+        case customErrors.ErrDriverDataRequired:
+            http.Error(w, err.Error(), http.StatusBadRequest)
+        case customErrors.ErrPhoneNumberExists:
+            http.Error(w, err.Error(), http.StatusConflict)
+        case customErrors.ErrFirstName, customErrors.ErrLastName, 
+             customErrors.ErrPhoneNumber, customErrors.ErrCarTypeRequired, 
+             customErrors.ErrLicensePlateRequired:
+            http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+        default:
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -62,9 +74,13 @@ func (h *DriverHandler) GetDriverByID(w http.ResponseWriter, r *http.Request) {
 
 	driver, err := h.service.GetDriverByID(r.Context(),id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
+		if err == customErrors.ErrDriverNotFound {
+            http.Error(w, err.Error(), http.StatusNotFound)
+        } else {
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(driver)
@@ -91,11 +107,20 @@ func (h *DriverHandler) DeleteDriver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.service.DeleteDriver(r.Context(),id)
+	err = h.service.DeleteDriver(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
+		if err == customErrors.ErrDriverNotFound {
+            http.Error(w, err.Error(), http.StatusNotFound)
+        } else {
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 
-	w.WriteHeader(http.StatusNoContent)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Driver deleted successfully",
+		"id":      idStr,
+	})
 }

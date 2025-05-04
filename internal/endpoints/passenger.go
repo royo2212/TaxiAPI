@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"taxiAPI/internal/entity"
 	"taxiAPI/internal/service"
+	customErrors "taxiAPI/internal/errors"
 )
 
 type PassengerHandler struct {
@@ -38,9 +39,18 @@ func (h *PassengerHandler) RegisterPassenger(w http.ResponseWriter, r *http.Requ
 	}
 	created, err := h.service.RegisterPassenger(r.Context(),passenger)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		switch err {
+        case customErrors.ErrPassengerDataRequired:
+            http.Error(w, err.Error(), http.StatusBadRequest)
+        case customErrors.ErrPhoneNumberExists:
+            http.Error(w, err.Error(), http.StatusConflict)
+        case customErrors.ErrFirstName, customErrors.ErrLastName, customErrors.ErrPhoneNumber:
+            http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+        default:
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(created); err != nil {
@@ -57,8 +67,12 @@ func (h *PassengerHandler) GetPassengerByID(w http.ResponseWriter, r *http.Reque
 	}
 	passenger, err := h.service.GetPassengerByID(r.Context(),id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
+		if err == customErrors.ErrPassengerNotFound {
+            http.Error(w, err.Error(), http.StatusNotFound)
+        } else {
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -87,10 +101,22 @@ func (h *PassengerHandler) DeletePassenger(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Invalid passenger ID", http.StatusBadRequest)
 		return
 	}
-	err = h.service.DeletePassenger(r.Context(),id)
+
+	err = h.service.DeletePassenger(r.Context(), id)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
+		if err == customErrors.ErrPassengerNotFound {
+            http.Error(w, err.Error(), http.StatusNotFound)
+        } else {
+            http.Error(w, "Internal server error", http.StatusInternalServerError)
+        }
+        return
+    }
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{
+		"message": "Passenger deleted successfully",
+		"id":      idStr,
+	})
 }
+
