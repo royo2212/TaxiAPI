@@ -27,12 +27,14 @@ func (d *Driver) RegisterDriver(ctx context.Context, driver *entity.Driver) (*en
 	default:
 		d.mutex.Lock()
 		defer d.mutex.Unlock()
-		driver.DriverID = d.nextID
-		d.drivers[driver.DriverID] = driver
+		id := d.nextID
+		driver.ID = &id
+		d.drivers[id] = driver
 		d.nextID++
 		return driver, nil
 	}
 }
+
 
 func (d *Driver) GetDriverByID(ctx context.Context, id int) (*entity.Driver, error) {
 	select {
