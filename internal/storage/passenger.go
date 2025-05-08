@@ -27,8 +27,8 @@ func (p *Passenger) RegisterPassenger(ctx context.Context, passenger *entity.Pas
 	default:
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
-		passenger.PassengerID = p.nextID
-		p.passengers[passenger.PassengerID] = passenger
+		passenger.ID = p.nextID
+		p.passengers[passenger.ID] = passenger
 		p.nextID++
 		return passenger, nil
 	}

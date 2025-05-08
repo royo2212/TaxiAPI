@@ -71,13 +71,16 @@ func (r *Ride) AssignDriverToRide(ctx context.Context, rideID, driverID int) err
 		return ctx.Err()
 	default:
 	}
+
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
+
 	ride, ok := r.rides[rideID]
 	if !ok {
 		return customErrors.ErrRideNotFound
 	}
-	ride.DriverID = driverID
+
+	ride.DriverID = &driverID
 	return nil
 }
 
@@ -102,11 +105,15 @@ func (r *Ride) FindActiveRideByDriver(ctx context.Context, driverID int) (*entit
 		return nil, ctx.Err()
 	default:
 	}
+
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
 
 	for _, ride := range r.rides {
-		if ride.DriverID == driverID && ride.Status != entity.StatusCompleted && ride.Status != entity.StatusCancelled {
+		if ride.DriverID != nil &&
+			*ride.DriverID == driverID &&
+			ride.Status != entity.StatusCompleted &&
+			ride.Status != entity.StatusCancelled {
 			return ride, nil
 		}
 	}

@@ -41,7 +41,7 @@ func (s *RideService) CreateRide(ctx context.Context, passengerID int, origin, d
 		return nil, customErrors.ErrDestinationRequired
 	}
 
-	passenger, err := s.passengerStore.GetPassengerByID(ctx,passengerID)
+	passenger, err := s.passengerStore.GetPassengerByID(ctx, passengerID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,14 +71,19 @@ func (s *RideService) GetRide(ctx context.Context, rideID int) (*entity.Ride, er
 	if err != nil {
 		return nil, err
 	}
-	passenger, err := s.passengerStore.GetPassengerByID(ctx,ride.PassengerID)
+
+	passenger, err := s.passengerStore.GetPassengerByID(ctx, ride.PassengerID)
 	if err == nil {
 		ride.Passenger = passenger
 	}
-	driver, err := s.driverStore.GetDriverByID(ctx,ride.DriverID)
-	if err == nil {
-		ride.Driver = driver
+
+	if ride.DriverID != nil {
+		driver, err := s.driverStore.GetDriverByID(ctx, *ride.DriverID)
+		if err == nil {
+			ride.Driver = driver
+		}
 	}
+
 	return ride, nil
 }
 
@@ -92,10 +97,10 @@ func (s *RideService) GetAllRides(ctx context.Context) ([]*entity.Ride, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if passenger, err := s.passengerStore.GetPassengerByID(ctx,ride.PassengerID); err == nil {
+		if passenger, err := s.passengerStore.GetPassengerByID(ctx, ride.PassengerID); err == nil {
 			ride.Passenger = passenger
 		}
-		if driver, err := s.driverStore.GetDriverByID(ctx,ride.DriverID); err == nil {
+		if driver, err := s.driverStore.GetDriverByID(ctx, *ride.DriverID); err == nil {
 			ride.Driver = driver
 		}
 	}
@@ -132,8 +137,8 @@ func (s *RideService) AssignDriverToRide(ctx context.Context, rideID, driverID i
 	if err != nil {
 		return err
 	}
-	if ride.DriverID != 0 {
-		if ride.DriverID == driverID {
+	if ride.DriverID != nil {
+		if *ride.DriverID == driverID {
 			return customErrors.ErrDriverAlreadyAssignedToRide
 		}
 		return customErrors.ErrRideAlreadyAssigned
@@ -145,7 +150,9 @@ func (s *RideService) AssignDriverToRide(ctx context.Context, rideID, driverID i
 	if err == nil && existingRide != nil {
 		return customErrors.ErrDriverAlreadyOnActiveRide
 	}
-	ride.DriverID = driverID
-	ride.Status = entity.StatusAccepted
-	return s.store.AssignDriverToRide(ctx, rideID, driverID)
+	err = s.store.AssignDriverToRide(ctx, rideID, driverID)
+	if err != nil {
+		return err
+	}
+	return s.store.UpdateRideStatus(ctx, rideID, entity.StatusAccepted)
 }
